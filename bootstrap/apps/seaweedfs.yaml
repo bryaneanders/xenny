@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: seaweedfs
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://seaweedfs.github.io/seaweedfs/helm
+    chart: seaweedfs
+    targetRevision: 4.49.0
+    helm:
+      valuesObject:
+        # One pod runs master, volume, filer and S3.
+        master: {enabled: false}
+        volume: {enabled: false}
+        filer: {enabled: false}
+        allInOne:
+          enabled: true
+          data:
+            type: persistentVolumeClaim
+            size: 20Gi
+          s3:
+            enabled: true
+            enableAuth: true
+            createBuckets:
+              - name: landing
+              - name: lake
+        s3:
+          enableAuth: true
+          # Keys come from a Secret created by bootstrap/up.sh, outside git.
+          credentials:
+            admin: {existingSecret: seaweedfs-s3}
+            read: {existingSecret: seaweedfs-s3}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lake
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

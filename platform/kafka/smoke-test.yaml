@@ -1,0 +1,9 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: smoke-test
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 1
+  replicas: 1

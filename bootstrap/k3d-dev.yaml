@@ -1,0 +1,15 @@
+# Single-node dev cluster on the MacBook.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: xenny
+servers: 1
+agents: 0
+# Matches the k3s stable channel the Ubuntu box installs.
+image: rancher/k3s:v1.36.5-k3s1
+options:
+  k3s:
+    extraArgs:
+      # No ingress yet; UIs are reached by port-forward.
+      - arg: --disable=traefik
+        nodeFilters: [server:*]
