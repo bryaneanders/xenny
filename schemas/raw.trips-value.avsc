@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "Trip",
+  "namespace": "xenny.trips",
+  "doc": "One row of a TLC yellow taxi trip file. Times are UTC instants converted from the file's New York local times.",
+  "fields": [
+    {"name": "source_file", "type": "string"},
+    {"name": "row_number", "type": "long", "doc": "1-based row position in source_file."},
+    {"name": "ingested_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "vendor_id", "type": ["null", "int"], "default": null},
+    {"name": "pickup_time", "type": ["null", {"type": "long", "logicalType": "timestamp-micros"}], "default": null},
+    {"name": "dropoff_time", "type": ["null", {"type": "long", "logicalType": "timestamp-micros"}], "default": null},
+    {"name": "passenger_count", "type": ["null", "long"], "default": null},
+    {"name": "trip_distance", "type": ["null", "double"], "default": null},
+    {"name": "ratecode_id", "type": ["null", "long"], "default": null},
+    {"name": "store_and_fwd_flag", "type": ["null", "string"], "default": null},
+    {"name": "pickup_location_id", "type": ["null", "int"], "default": null},
+    {"name": "dropoff_location_id", "type": ["null", "int"], "default": null},
+    {"name": "payment_type", "type": ["null", "long"], "default": null},
+    {"name": "fare_amount", "type": ["null", "double"], "default": null},
+    {"name": "extra", "type": ["null", "double"], "default": null},
+    {"name": "mta_tax", "type": ["null", "double"], "default": null},
+    {"name": "tip_amount", "type": ["null", "double"], "default": null},
+    {"name": "tolls_amount", "type": ["null", "double"], "default": null},
+    {"name": "improvement_surcharge", "type": ["null", "double"], "default": null},
+    {"name": "total_amount", "type": ["null", "double"], "default": null},
+    {"name": "congestion_surcharge", "type": ["null", "double"], "default": null},
+    {"name": "airport_fee", "type": ["null", "double"], "default": null},
+    {"name": "cbd_congestion_fee", "type": ["null", "double"], "default": null},
+    {"name": "request_source", "type": ["null", "string"], "default": null}
+  ]
+}

@@ -1,0 +1,24 @@
+# Runs after every sync of the schemas app, once the ConfigMap is up to date.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: register-schemas
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: register
+          image: python:3.13-alpine
+          command: [python, /schemas/register.py]
+          env:
+            - {name: REGISTRY_URL, value: "http://apicurio-registry.kafka:8080"}
+          volumeMounts:
+            - {name: schemas, mountPath: /schemas}
+      volumes:
+        - name: schemas
+          configMap: {name: schemas}

@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "LedgerEntry",
+  "namespace": "xenny.ingest",
+  "doc": "A file the ingest service finished producing. Keyed by the file's object key.",
+  "fields": [
+    {"name": "sha256", "type": "string"},
+    {"name": "row_count", "type": "long"},
+    {"name": "completed_at", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

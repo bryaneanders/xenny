@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trips-ingest
+  namespace: pipelines
+spec:
+  replicas: 1
+  # Never two at once: both would ingest the same files.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: trips-ingest}
+  template:
+    metadata:
+      labels: {app: trips-ingest}
+    spec:
+      containers:
+        - name: ingest
+          # Built locally and loaded with `k3d image import`; see apps/ingest/Dockerfile.
+          image: xenny-ingest:dev
+          imagePullPolicy: Never
+          env:
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap.kafka:9092}
+            - {name: REGISTRY_URL, value: "http://apicurio-registry.kafka:8080/apis/registry/v3"}
+            - {name: S3_ENDPOINT, value: "http://seaweedfs-all-in-one.lake:8333"}
+            - {name: S3_BUCKET, value: landing}
+            - {name: S3_PREFIX, value: trips/}
+            - {name: TOPIC, value: raw.trips}
+            - {name: LEDGER_TOPIC, value: ingest.ledger}
+            - {name: WORK_DIR, value: /work}
+            - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=75"}
+          # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, created by bootstrap/install.sh.
+          envFrom:
+            - secretRef: {name: s3-credentials}
+          volumeMounts:
+            - {name: work, mountPath: /work}
+          resources:
+            requests: {memory: 1Gi, cpu: 500m}
+            limits: {memory: 1Gi}
+      volumes:
+        # Holds the file being ingested (~60 MB per month of trips).
+        - name: work
+          emptyDir: {sizeLimit: 1Gi}

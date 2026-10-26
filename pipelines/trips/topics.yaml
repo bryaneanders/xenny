@@ -1,0 +1,27 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: raw.trips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 6
+  replicas: 1
+  config:
+    # Kept forever so silver and gold can be rebuilt by replaying it.
+    retention.ms: -1
+---
+# Files already ingested. Compaction keeps only the latest entry per file.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: ingest.ledger
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    cleanup.policy: compact

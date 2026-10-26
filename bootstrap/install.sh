@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 ARGOCD_CHART_VERSION=10.11.1
 
-for ns in argocd monitoring lake kafka; do
+for ns in argocd monitoring lake kafka pipelines; do
   kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
 done
 
@@ -27,6 +27,12 @@ secret lake seaweedfs-s3 \
   --from-literal=admin_secret_access_key="$(rand 20)" \
   --from-literal=read_access_key_id="$(rand 10)" \
   --from-literal=read_secret_access_key="$(rand 20)"
+
+# Pipeline apps reuse the SeaweedFS admin keys, under the names the AWS SDK reads.
+s3key() { kubectl -n lake get secret seaweedfs-s3 -o jsonpath="{.data.$1}" | base64 -d; }
+secret pipelines s3-credentials \
+  --from-literal=AWS_ACCESS_KEY_ID="$(s3key admin_access_key_id)" \
+  --from-literal=AWS_SECRET_ACCESS_KEY="$(s3key admin_secret_access_key)"
 
 helm upgrade --install argocd argo-cd \
   --repo https://argoproj.github.io/argo-helm \

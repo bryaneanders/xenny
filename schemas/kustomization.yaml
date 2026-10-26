@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kafka
+resources:
+  - register-job.yaml
+# Each file is named after the registry subject it's registered under.
+configMapGenerator:
+  - name: schemas
+    files:
+      - register.py
+      - raw.trips-value.avsc
+      - ingest.ledger-value.avsc
+    options:
+      disableNameSuffixHash: true

@@ -1,0 +1,41 @@
+# Schema registry. Storage is Kafka itself (kafkasql), so there's no database to run;
+# it creates its own kafkasql-* topics with the retention it needs.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apicurio-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: apicurio-registry}
+  template:
+    metadata:
+      labels: {app: apicurio-registry}
+    spec:
+      containers:
+        - name: registry
+          image: apicurio/apicurio-registry:3.3.3
+          env:
+            - {name: APICURIO_STORAGE_KIND, value: kafkasql}
+            - {name: APICURIO_KAFKASQL_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap:9092}
+          ports:
+            - {name: http, containerPort: 8080}
+            # Health checks are served on a separate management port.
+            - {name: management, containerPort: 9000}
+          readinessProbe:
+            httpGet: {path: /health/ready, port: management}
+          livenessProbe:
+            httpGet: {path: /health/live, port: management}
+            initialDelaySeconds: 30
+          resources:
+            requests: {memory: 512Mi, cpu: 100m}
+            limits: {memory: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apicurio-registry
+spec:
+  selector: {app: apicurio-registry}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
