@@ -16,9 +16,8 @@ spec:
     spec:
       containers:
         - name: ingest
-          # Built locally and loaded with `k3d image import`; see apps/ingest/Dockerfile.
-          image: xenny-ingest:dev
-          imagePullPolicy: Never
+          # CI updates this tag on each push to main; see .github/workflows/ingest.yml.
+          image: ghcr.io/bryaneanders/xenny-ingest:sha-fbf2597
           env:
             - {name: KAFKA_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap.kafka:9092}
             - {name: REGISTRY_URL, value: "http://apicurio-registry.kafka:8080/apis/registry/v3"}

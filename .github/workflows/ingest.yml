@@ -12,11 +12,14 @@ on:
   pull_request:
     paths: *paths
 
+# One run at a time per branch, so deploy commits land in order.
+concurrency: ingest-${{ github.ref }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v7
@@ -89,3 +92,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Point the Deployment at the new image; ArgoCD deploys it once this commit lands.
+      # Commits made with GITHUB_TOKEN don't trigger workflows, so this can't loop.
+      - name: Deploy
+        if: github.ref == 'refs/heads/main'
+        run: |
+          sed -i "s|\(xenny-ingest:\).*|\1sha-${GITHUB_SHA::7}|" pipelines/trips/ingest.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy xenny-ingest sha-${GITHUB_SHA::7}"
+          git pull --rebase
+          git push

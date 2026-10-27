@@ -26,13 +26,9 @@ k3d cluster create --config bootstrap/k3d-dev.yaml
 `install.sh` works against any cluster in the current kube context (e.g. k3s on the Ubuntu box).
 It creates the secrets kept out of git, installs ArgoCD, and applies the root app.
 
-App images aren't in a registry yet. Build and load them into k3d after creating the cluster, and after code changes:
-
-```sh
-docker build -f apps/ingest/Dockerfile -t xenny-ingest:dev .
-k3d image import xenny-ingest:dev -c xenny
-kubectl -n pipelines rollout restart deploy/trips-ingest
-```
+App images are built by CI and pushed to GHCR (`ghcr.io/bryaneanders/xenny-ingest`) on push to `main`.
+CI then commits the new `sha-<commit>` tag to `pipelines/trips/ingest.yaml`, and ArgoCD deploys it.
+Pull before your next commit to pick up that change.
 
 ## Ingesting a file
 
