@@ -1,5 +1,6 @@
 # Build from the repo root: docker build -f apps/ingest/Dockerfile -t xenny-ingest:dev .
-FROM maven:3.9-eclipse-temurin-25 AS build
+# Compiles on the build machine's own architecture; the jars run on any platform.
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /src
 COPY . .
 # The cache mount keeps downloaded dependencies between builds.

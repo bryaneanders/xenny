@@ -83,6 +83,19 @@
         <artifactId>slf4j-simple</artifactId>
         <version>${slf4j.version}</version>
       </dependency>
+      <!-- Pinned above the transitive versions to pick up security fixes. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>2.22.4</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>at.yawk.lz4</groupId>
+        <artifactId>lz4-java</artifactId>
+        <version>1.12.1</version>
+      </dependency>
       <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter</artifactId>
