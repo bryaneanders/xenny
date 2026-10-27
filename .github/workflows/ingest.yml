@@ -58,7 +58,9 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+          # Reuses the Trivy install and DB from the step above.
           skip-setup-trivy: true
+          cache: "false"
 
       - uses: docker/login-action@v4
         if: github.ref == 'refs/heads/main'
