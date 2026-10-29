@@ -28,7 +28,7 @@ public final class Main {
 
         Map<String, Object> serde = Map.of(
             "apicurio.registry.url", env("REGISTRY_URL", null),
-            // Schemas are registered from git, never by the app.
+            // Schemas are registered from git, not the app.
             "apicurio.registry.auto-register", false,
             // Match our schema to the registered one regardless of JSON formatting.
             "apicurio.registry.canonicalize", true,
@@ -37,10 +37,14 @@ public final class Main {
         Map<String, Object> producerConfig = new HashMap<>(serde);
         producerConfig.putAll(Map.of(
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap,
+            // can save the same record multiple times without extra application
             ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true,
+            // message successfully written when all replicas acknowledge
             ProducerConfig.ACKS_CONFIG, "all",
             ProducerConfig.COMPRESSION_TYPE_CONFIG, "zstd",
+            // max ms waited before sending request to broker
             ProducerConfig.LINGER_MS_CONFIG, 20,
+            // max number of records before sending request to broker
             ProducerConfig.BATCH_SIZE_CONFIG, 256 * 1024,
             ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
             ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, AvroKafkaSerializer.class));
@@ -48,11 +52,13 @@ public final class Main {
         Map<String, Object> consumerConfig = new HashMap<>(serde);
         consumerConfig.putAll(Map.of(
             ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap,
+            // don't periodically commit offsets in the background
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false,
             ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class,
             ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, AvroKafkaDeserializer.class));
 
-        // Credentials come from AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+        // Credentials come from AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_K
+        // EY.
         S3Client s3 = S3Client.builder()
             .endpointOverride(URI.create(env("S3_ENDPOINT", null)))
             .region(Region.US_EAST_1)

@@ -33,6 +33,7 @@ final class Ledger {
             List<TopicPartition> partitions = consumer.partitionsFor(topic).stream()
                 .map(p -> new TopicPartition(topic, p.partition()))
                 .toList();
+
             consumer.assign(partitions);
             consumer.seekToBeginning(partitions);
             Map<TopicPartition, Long> end = consumer.endOffsets(partitions);

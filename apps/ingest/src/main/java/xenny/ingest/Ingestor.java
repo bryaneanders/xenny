@@ -58,9 +58,9 @@ final class Ingestor {
     private void ingest(String key) throws Exception {
         String sha256 = download(key);
 
-        LedgerEntry done = ledger.get(key);
-        if (done != null) {
-            if (done.getSha256().toString().equals(sha256)) {
+        LedgerEntry entry = ledger.get(key);
+        if (entry != null) {
+            if (entry.getSha256().toString().equals(sha256)) {
                 log.info("{} was already ingested; moving to processed/", key);
                 move(key, "processed/");
             } else {
