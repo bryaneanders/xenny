@@ -3,6 +3,10 @@ kind: Application
 metadata:
   name: lakekeeper
   namespace: argocd
+  annotations:
+    # Let Kubernetes compute the diff; the client-side diff flags fields it fills in on
+    # the Postgres StatefulSet's volume claim template as changes, so the app never syncs.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: default
   sources:
