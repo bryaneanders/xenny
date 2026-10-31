@@ -37,10 +37,9 @@ Pull before your next commit to pick up that change.
 
 Upload a TLC trip file to `landing/trips/` (e.g. `yellow_tripdata_2026-07.parquet` from the
 [TLC trip record page](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)).
-With the AWS CLI and a port-forward:
+With the AWS CLI and the `s3` port-forward (see [Port-forwards](#port-forwards)):
 
 ```sh
-kubectl -n lake port-forward svc/seaweedfs-all-in-one 8333 &
 export AWS_ACCESS_KEY_ID=$(kubectl -n pipelines get secret s3-credentials -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
 export AWS_SECRET_ACCESS_KEY=$(kubectl -n pipelines get secret s3-credentials -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
 aws --endpoint-url http://localhost:8333 s3 cp yellow_tripdata_2026-07.parquet s3://landing/trips/
@@ -51,11 +50,10 @@ The ingest service moves finished files to `processed/trips/` and unreadable one
 ## Querying the lake
 
 Tables are registered in the Lakekeeper catalog (warehouse `xenny`). Query them with DuckDB,
-using the S3 keys and SeaweedFS port-forward from above plus a port-forward to the catalog.
+using the S3 keys from above and the `s3` and `lakekeeper` port-forwards.
 New rows show up within about a minute, when the sink commits.
 
 ```sh
-kubectl -n lake port-forward svc/lakekeeper 8181 &
 duckdb -c "
 CREATE SECRET (TYPE s3, KEY_ID '$AWS_ACCESS_KEY_ID', SECRET '$AWS_SECRET_ACCESS_KEY',
                ENDPOINT 'localhost:8333', URL_STYLE 'path', USE_SSL false);
@@ -66,13 +64,25 @@ SELECT count(*) FROM lake.bronze.trips;"
 
 `ACCESS_DELEGATION_MODE 'none'` makes DuckDB use its own S3 keys; the catalog doesn't hand out credentials.
 
-## UIs
+## Port-forwards
 
-| UI | Port-forward | Login |
+`tools/ports.sh` forwards the cluster's UIs and APIs to localhost and prints each URL and login.
+Run it with no arguments to see the list and choose, or pass `all` or service names:
+
+```sh
+tools/ports.sh               # list, then choose
+tools/ports.sh grafana s3    # just these
+```
+
+| Name | Local URL | What |
 |---|---|---|
-| ArgoCD | `kubectl -n argocd port-forward svc/argocd-server 8080:443` | `admin` / `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 -d` |
-| Grafana | `kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80` | `admin` / `kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' \| base64 -d` |
-| Lakekeeper (catalog) | `kubectl -n lake port-forward svc/lakekeeper 8181` | none; open `localhost:8181/ui` |
-| Schema registry API | `kubectl -n kafka port-forward svc/apicurio-registry 8081:8080` | none; e.g. `curl localhost:8081/apis/ccompat/v7/subjects` |
+| argocd | https://localhost:8443 | ArgoCD UI |
+| grafana | http://localhost:3000 | Grafana dashboards |
+| prometheus | http://localhost:9090 | Prometheus |
+| registry | http://localhost:8081 | Schema registry API, e.g. `/apis/ccompat/v7/subjects` |
+| connect | http://localhost:8083 | Kafka Connect API, e.g. `/connectors?expand=status` |
+| lakekeeper | http://localhost:8181/ui | Iceberg catalog UI; REST catalog at `/catalog` |
+| s3 | http://localhost:8333 | SeaweedFS S3 API |
+| filer | http://localhost:8888/buckets/ | SeaweedFS file browser |
 
-S3 keys for SeaweedFS are in the `seaweedfs-s3` secret in the `lake` namespace.
+Ctrl-C closes them all. A forward reconnects by itself if its pod restarts.
