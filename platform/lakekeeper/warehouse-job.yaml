@@ -1,0 +1,53 @@
+# Bootstraps Lakekeeper and creates the "xenny" warehouse in the lake bucket.
+# Safe to rerun: both calls are no-ops once done.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-warehouse
+  namespace: lake
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create
+          image: curlimages/curl:8.23.0
+          env:
+            - name: S3_KEY
+              valueFrom: {secretKeyRef: {name: seaweedfs-s3, key: admin_access_key_id}}
+            - name: S3_SECRET
+              valueFrom: {secretKeyRef: {name: seaweedfs-s3, key: admin_secret_access_key}}
+          command: [sh, -euc]
+          args:
+            - |
+              LK=http://lakekeeper:8181/management/v1
+              post() { curl -sS -o /tmp/out -w '%{http_code}' -H 'Content-Type: application/json' -d "$2" "$LK/$1"; }
+
+              # 204 the first time, an error once bootstrapped.
+              post bootstrap '{"accept-terms-of-use": true}'; echo " bootstrap"
+
+              if curl -sSf "$LK/warehouse" | grep -q '"name":"xenny"'; then
+                echo "warehouse exists"; exit 0
+              fi
+
+              # Clients bring their own S3 keys: SeaweedFS has no STS, and its
+              # signature checks are too loose for remote signing to be safe.
+              code=$(post warehouse '{
+                "warehouse-name": "xenny",
+                "storage-profile": {
+                  "type": "s3", "bucket": "lake", "region": "us-east-1",
+                  "endpoint": "http://seaweedfs-all-in-one.lake:8333", "path-style-access": true,
+                  "flavor": "s3-compat", "sts-enabled": false, "remote-signing-enabled": false
+                },
+                "storage-credential": {
+                  "type": "s3", "credential-type": "access-key",
+                  "aws-access-key-id": "'"$S3_KEY"'", "aws-secret-access-key": "'"$S3_SECRET"'"
+                },
+                "delete-profile": {"type": "hard"}
+              }')
+              echo "$code warehouse"; cat /tmp/out; echo
+              case $code in 2??) ;; *) exit 1 ;; esac

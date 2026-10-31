@@ -1,0 +1,27 @@
+# Kafka Connect image with our plugins; see image.yml for the steps.
+name: connect
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - apps/connect/**
+      - pom.xml
+      - .github/workflows/connect.yml
+      - .github/workflows/image.yml
+  pull_request:
+    paths: *paths
+
+# One run at a time per branch, so deploy commits land in order.
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  image:
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      image: xenny-connect
+      module: apps/connect
+      deploy: platform/connect/connect.yaml

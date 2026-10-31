@@ -29,7 +29,7 @@ spec:
               - name: lake
         s3:
           enableAuth: true
-          # Keys come from a Secret created by bootstrap/up.sh, outside git.
+          # Keys come from a Secret created by bootstrap/install.sh, outside git.
           credentials:
             admin: {existingSecret: seaweedfs-s3}
             read: {existingSecret: seaweedfs-s3}

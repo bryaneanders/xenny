@@ -1,0 +1,116 @@
+# Shared by the per-image workflows. Tests a Maven module and builds and scans its image.
+# On main, also pushes the image to GHCR and commits the new tag to the manifest that deploys it.
+name: image
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: Image name, e.g. xenny-ingest
+        type: string
+        required: true
+      module:
+        description: Maven module holding the Dockerfile, e.g. apps/ingest
+        type: string
+        required: true
+      deploy:
+        description: Manifest whose image tag is updated on main
+        type: string
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Test
+        run: mvn -B verify -pl ${{ inputs.module }} -am
+
+      # Runs arm64 build steps on the x86 runner.
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      # Build one platform into the local Docker daemon so it can be scanned before pushing.
+      - name: Build for scan
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ inputs.module }}/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ${{ inputs.image }}:scan
+          cache-from: type=gha,scope=${{ inputs.image }}
+
+      # Pinned to a commit so a re-pointed tag can't change what runs (trivy-action's tags were hijacked in 2026).
+      - name: Report HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ inputs.image }}:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+      - name: Fail on CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ inputs.image }}:scan
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          # Reuses the Trivy install and DB from the step above.
+          skip-setup-trivy: true
+          cache: "false"
+
+      - uses: docker/login-action@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags: sha-<short sha> for every build, latest for main.
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ inputs.image }}
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ inputs.module }}/Dockerfile
+          # Mac (arm64) and the Ubuntu box (amd64).
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ inputs.image }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image }}
+
+      # Point the manifest at the new image; ArgoCD deploys it once this commit lands.
+      # Commits made with GITHUB_TOKEN don't trigger workflows, so this can't loop.
+      - name: Deploy
+        if: github.ref == 'refs/heads/main'
+        env:
+          IMAGE: ${{ inputs.image }}
+          DEPLOY: ${{ inputs.deploy }}
+        run: |
+          tag=sha-${GITHUB_SHA::7}
+          sed -i "s|\($IMAGE:\).*|\1$tag|" "$DEPLOY"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy $IMAGE $tag"
+          # Another image's workflow may have pushed a deploy commit meanwhile.
+          for attempt in 1 2 3; do
+            git pull --rebase && git push && exit 0
+            sleep 5
+          done
+          exit 1

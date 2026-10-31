@@ -1,0 +1,58 @@
+# Bronze: copies every raw.trips record into the Iceberg table bronze.trips.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaConnector
+metadata:
+  name: bronze-trips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  class: org.apache.iceberg.connect.IcebergSinkConnector
+  tasksMax: 1
+  config:
+    topics: raw.trips
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: io.apicurio.registry.utils.converter.AvroConverter
+    value.converter.apicurio.registry.url: http://apicurio-registry.kafka:8080/apis/registry/v3
+
+    # Connect has no microsecond timestamp type, so these arrive as plain longs; make them timestamps again.
+    transforms: pickupTime,dropoffTime
+    transforms.pickupTime.type: org.apache.kafka.connect.transforms.TimestampConverter$Value
+    transforms.pickupTime.field: pickup_time
+    transforms.pickupTime.target.type: Timestamp
+    transforms.pickupTime.unix.precision: microseconds
+    transforms.dropoffTime.type: org.apache.kafka.connect.transforms.TimestampConverter$Value
+    transforms.dropoffTime.field: dropoff_time
+    transforms.dropoffTime.target.type: Timestamp
+    transforms.dropoffTime.unix.precision: microseconds
+
+    iceberg.tables: bronze.trips
+    # Creates the namespace and table from the record schema, and adds new fields as they appear.
+    iceberg.tables.auto-create-enabled: true
+    iceberg.tables.evolve-schema-enabled: true
+    # Workers coordinate commits through this topic, so each record is committed exactly once.
+    iceberg.control.topic: iceberg.control.bronze-trips
+    # How often data files are committed as a new snapshot.
+    iceberg.control.commit.interval-ms: 60000
+
+    iceberg.catalog.type: rest
+    iceberg.catalog.uri: http://lakekeeper.lake:8181/catalog
+    iceberg.catalog.warehouse: xenny
+    # S3 keys come from the Connect pod's environment; see platform/connect/connect.yaml.
+    iceberg.catalog.io-impl: org.apache.iceberg.aws.s3.S3FileIO
+    iceberg.catalog.s3.endpoint: http://seaweedfs-all-in-one.lake:8333
+    iceberg.catalog.s3.path-style-access: true
+    iceberg.catalog.client.region: us-east-1
+    iceberg.catalog.s3.staging-dir: /mnt/staging
+---
+# Used only by the bronze-trips connector; the sink needs a control topic of its own.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: iceberg.control.bronze-trips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 1
+  replicas: 1

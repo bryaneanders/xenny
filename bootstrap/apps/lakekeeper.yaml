@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lakekeeper
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Iceberg REST catalog, with a small Postgres for its metadata.
+    - repoURL: https://lakekeeper.github.io/lakekeeper-charts/
+      chart: lakekeeper
+      targetRevision: 0.12.0
+      helm:
+        valuesObject:
+          catalog:
+            # Latest patch of the chart's 0.13 app line.
+            image: {tag: v0.13.8}
+          # Credentials and the secret-store key come from a Secret created by bootstrap/install.sh.
+          postgresql:
+            settings:
+              existingSecret: lakekeeper-pg
+              superuserPassword: {secretKey: POSTGRES_PASSWORD}
+            userDatabase:
+              existingSecret: lakekeeper-pg
+              name: {secretKey: USERDB_NAME}
+              user: {secretKey: USERDB_USER}
+              password: {secretKey: USERDB_PASSWORD}
+          secretBackend:
+            postgres:
+              encryptionKeySecret: lakekeeper-pg
+              encryptionKeySecretKey: ENCRYPTION_KEY
+    # Creates the warehouse after each sync.
+    - repoURL: https://github.com/bryaneanders/xenny.git
+      targetRevision: main
+      path: platform/lakekeeper
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lake
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

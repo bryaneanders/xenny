@@ -12,6 +12,7 @@
   <modules>
     <module>schemas</module>
     <module>apps/ingest</module>
+    <module>apps/connect</module>
   </modules>
 
   <properties>

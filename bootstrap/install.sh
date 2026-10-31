@@ -28,11 +28,21 @@ secret lake seaweedfs-s3 \
   --from-literal=read_access_key_id="$(rand 10)" \
   --from-literal=read_secret_access_key="$(rand 20)"
 
-# Pipeline apps reuse the SeaweedFS admin keys, under the names the AWS SDK reads.
+# Lakekeeper's Postgres logins, and the key it encrypts stored S3 credentials with.
+secret lake lakekeeper-pg \
+  --from-literal=POSTGRES_PASSWORD="$(rand 16)" \
+  --from-literal=USERDB_NAME=lakekeeper \
+  --from-literal=USERDB_USER=lakekeeper \
+  --from-literal=USERDB_PASSWORD="$(rand 16)" \
+  --from-literal=ENCRYPTION_KEY="$(rand 32)"
+
+# Pipeline apps and Kafka Connect reuse the SeaweedFS admin keys, under the names the AWS SDK reads.
 s3key() { kubectl -n lake get secret seaweedfs-s3 -o jsonpath="{.data.$1}" | base64 -d; }
-secret pipelines s3-credentials \
-  --from-literal=AWS_ACCESS_KEY_ID="$(s3key admin_access_key_id)" \
-  --from-literal=AWS_SECRET_ACCESS_KEY="$(s3key admin_secret_access_key)"
+for ns in pipelines kafka; do
+  secret "$ns" s3-credentials \
+    --from-literal=AWS_ACCESS_KEY_ID="$(s3key admin_access_key_id)" \
+    --from-literal=AWS_SECRET_ACCESS_KEY="$(s3key admin_secret_access_key)"
+done
 
 helm upgrade --install argocd argo-cd \
   --repo https://argoproj.github.io/argo-helm \

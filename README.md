@@ -6,11 +6,14 @@ Xenny is a modularized and extensible streaming data ingestion framework running
 ```
 bootstrap/        # cluster config, install script, root app-of-apps
 bootstrap/apps/   # one ArgoCD Application per component
-platform/         # shared infra config (Kafka, schema registry)
+platform/         # shared infra config (Kafka, schema registry, Iceberg catalog, Kafka Connect)
 schemas/          # Avro schemas, one per registry subject; registered by a Job on sync
-pipelines/trips/  # topics and deployments for the trips dataset
+pipelines/trips/  # topics, deployments and connectors for the trips dataset
 apps/ingest/      # ingest service: files in landing/trips/ -> raw.trips
+apps/connect/     # Kafka Connect image with the Iceberg sink and Apicurio converter
 ```
+
+Data flow so far: files in `landing/trips/` -> ingest service -> `raw.trips` (Kafka) -> Iceberg sink -> `bronze.trips` (Iceberg, in the `lake` bucket).
 
 ArgoCD syncs `main` from GitHub, so changes take effect once pushed.
 
@@ -26,8 +29,8 @@ k3d cluster create --config bootstrap/k3d-dev.yaml
 `install.sh` works against any cluster in the current kube context (e.g. k3s on the Ubuntu box).
 It creates the secrets kept out of git, installs ArgoCD, and applies the root app.
 
-App images are built by CI and pushed to GHCR (`ghcr.io/bryaneanders/xenny-ingest`) on push to `main`.
-CI then commits the new `sha-<commit>` tag to `pipelines/trips/ingest.yaml`, and ArgoCD deploys it.
+Images (`apps/*`) are built by CI and pushed to GHCR (`ghcr.io/bryaneanders/xenny-*`) on push to `main`.
+CI then commits the new `sha-<commit>` tag to the manifest that uses it, and ArgoCD deploys it.
 Pull before your next commit to pick up that change.
 
 ## Ingesting a file
@@ -45,12 +48,31 @@ aws --endpoint-url http://localhost:8333 s3 cp yellow_tripdata_2026-07.parquet s
 
 The ingest service moves finished files to `processed/trips/` and unreadable ones to `failed/trips/`.
 
+## Querying the lake
+
+Tables are registered in the Lakekeeper catalog (warehouse `xenny`). Query them with DuckDB,
+using the S3 keys and SeaweedFS port-forward from above plus a port-forward to the catalog.
+New rows show up within about a minute, when the sink commits.
+
+```sh
+kubectl -n lake port-forward svc/lakekeeper 8181 &
+duckdb -c "
+CREATE SECRET (TYPE s3, KEY_ID '$AWS_ACCESS_KEY_ID', SECRET '$AWS_SECRET_ACCESS_KEY',
+               ENDPOINT 'localhost:8333', URL_STYLE 'path', USE_SSL false);
+ATTACH 'xenny' AS lake (TYPE iceberg, URI 'http://localhost:8181/catalog',
+                        AUTHORIZATION_TYPE 'none', ACCESS_DELEGATION_MODE 'none');
+SELECT count(*) FROM lake.bronze.trips;"
+```
+
+`ACCESS_DELEGATION_MODE 'none'` makes DuckDB use its own S3 keys; the catalog doesn't hand out credentials.
+
 ## UIs
 
 | UI | Port-forward | Login |
 |---|---|---|
 | ArgoCD | `kubectl -n argocd port-forward svc/argocd-server 8080:443` | `admin` / `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 -d` |
 | Grafana | `kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80` | `admin` / `kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' \| base64 -d` |
+| Lakekeeper (catalog) | `kubectl -n lake port-forward svc/lakekeeper 8181` | none; open `localhost:8181/ui` |
 | Schema registry API | `kubectl -n kafka port-forward svc/apicurio-registry 8081:8080` | none; e.g. `curl localhost:8081/apis/ccompat/v7/subjects` |
 
 S3 keys for SeaweedFS are in the `seaweedfs-s3` secret in the `lake` namespace.

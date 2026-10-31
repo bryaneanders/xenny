@@ -1,0 +1,46 @@
+# Kafka Connect cluster shared by all pipelines; connectors live with their pipeline.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaConnect
+metadata:
+  name: xenny
+  namespace: kafka
+  annotations:
+    # Connectors are managed as KafkaConnector resources.
+    strimzi.io/use-connector-resources: "true"
+spec:
+  version: 4.3.1
+  replicas: 1
+  # Built from apps/connect. CI updates this tag on each push to main; see .github/workflows/connect.yml.
+  image: ghcr.io/bryaneanders/xenny-connect:latest
+  bootstrapServers: xenny-kafka-bootstrap:9092
+  groupId: connect
+  configStorageTopic: connect-configs
+  offsetStorageTopic: connect-offsets
+  statusStorageTopic: connect-status
+  config:
+    # -1 uses the broker default (1 while there's one broker).
+    config.storage.replication.factor: -1
+    offset.storage.replication.factor: -1
+    status.storage.replication.factor: -1
+  jvmOptions:
+    -Xms: 1g
+    -Xmx: 1g
+  resources:
+    requests: {memory: 2Gi}
+    limits: {memory: 2Gi}
+  template:
+    pod:
+      # Disk for Iceberg to stage S3 uploads; /tmp is a 5Mi in-memory volume.
+      volumes:
+        - name: staging
+          emptyDir: {sizeLimit: 2Gi}
+    connectContainer:
+      volumeMounts:
+        - {name: staging, mountPath: /mnt/staging}
+      # S3 keys for connectors that write to the lake.
+      env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom: {secretKeyRef: {name: s3-credentials, key: AWS_ACCESS_KEY_ID}}
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom: {secretKeyRef: {name: s3-credentials, key: AWS_SECRET_ACCESS_KEY}}
+        - {name: AWS_REGION, value: us-east-1}
