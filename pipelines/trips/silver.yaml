@@ -1,0 +1,45 @@
+# Silver: copies every clean.trips record into the Iceberg table silver.trips.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaConnector
+metadata:
+  name: silver-trips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  class: org.apache.iceberg.connect.IcebergSinkConnector
+  tasksMax: 1
+  config:
+    topics: clean.trips
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: io.apicurio.registry.utils.converter.AvroConverter
+    value.converter.apicurio.registry.url: http://apicurio-registry.kafka:8080/apis/registry/v3
+    # clean.trips times are timestamp-millis, which Connect reads as timestamps, so no transforms are needed.
+
+    iceberg.tables: silver.trips
+    iceberg.tables.auto-create-enabled: true
+    iceberg.tables.evolve-schema-enabled: true
+    iceberg.control.topic: iceberg.control.silver-trips
+    iceberg.control.commit.interval-ms: 60000
+
+    # Same catalog and storage settings as bronze.yaml.
+    iceberg.catalog.type: rest
+    iceberg.catalog.uri: http://lakekeeper.lake:8181/catalog
+    iceberg.catalog.warehouse: xenny
+    iceberg.catalog.io-impl: org.apache.iceberg.aws.s3.S3FileIO
+    iceberg.catalog.s3.endpoint: http://seaweedfs-all-in-one.lake:8333
+    iceberg.catalog.s3.path-style-access: true
+    iceberg.catalog.client.region: us-east-1
+    iceberg.catalog.s3.staging-dir: /mnt/staging
+---
+# Used only by the silver-trips connector.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: iceberg.control.silver-trips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 1
+  replicas: 1

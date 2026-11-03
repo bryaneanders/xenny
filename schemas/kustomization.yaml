@@ -10,5 +10,7 @@ configMapGenerator:
       - register.py
       - raw.trips-value.avsc
       - ingest.ledger-value.avsc
+      - ref.zones-value.avsc
+      - clean.trips-value.avsc
     options:
       disableNameSuffixHash: true

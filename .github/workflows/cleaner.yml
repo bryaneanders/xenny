@@ -1,0 +1,28 @@
+# Cleaner (Kafka Streams) image; see image.yml for the steps.
+name: cleaner
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - apps/cleaner/**
+      - schemas/**
+      - pom.xml
+      - .github/workflows/cleaner.yml
+      - .github/workflows/image.yml
+  pull_request:
+    paths: *paths
+
+# One run at a time per branch, so deploy commits land in order.
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  image:
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      image: xenny-cleaner
+      module: apps/cleaner
+      deploy: pipelines/trips/cleaner.yaml

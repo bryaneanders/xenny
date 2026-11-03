@@ -11,6 +11,7 @@ configMapGenerator:
     files:
       - dashboards/strimzi-kafka.json
       - dashboards/strimzi-kraft.json
+      - dashboards/pipelines.json
     options:
       labels:
         grafana_dashboard: "1"

@@ -10,10 +10,25 @@ platform/         # shared infra config (Kafka, schema registry, Iceberg catalog
 schemas/          # Avro schemas, one per registry subject; registered by a Job on sync
 pipelines/trips/  # topics, deployments and connectors for the trips dataset
 apps/ingest/      # ingest service: files in landing/trips/ -> raw.trips
+apps/cleaner/     # Kafka Streams app: raw.trips -> clean.trips (valid) and dlq.trips (rejected)
 apps/connect/     # Kafka Connect image with the Iceberg sink and Apicurio converter
+sql/              # DuckDB scripts for querying and exploring the lake
 ```
 
-Data flow so far: files in `landing/trips/` -> ingest service -> `raw.trips` (Kafka) -> Iceberg sink -> `bronze.trips` (Iceberg, in the `lake` bucket).
+Data flow so far:
+
+```
+landing/trips/*.parquet -> ingest -> raw.trips -> Iceberg sink -> bronze.trips
+                                         |
+                                      cleaner -> clean.trips -> Iceberg sink -> silver.trips
+                                         |
+                                         +-----> dlq.trips (rejects, with a "rule" header)
+```
+
+The cleaner drops duplicate rows, joins zone names from `ref.zones`, and rejects reversals
+(negative amounts), impossible durations or distances, and unknown zones.
+`sql/explore.sql` shows how those rules were chosen. The Grafana dashboard "Xenny pipelines" shows
+consumer lag and rejects by rule.
 
 ArgoCD syncs `main` from GitHub, so changes take effect once pushed.
 

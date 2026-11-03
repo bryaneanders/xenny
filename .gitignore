@@ -24,3 +24,7 @@ kubeconfig*
 .vscode/
 *.swp
 .DS_Store
+
+# Local DuckDB databases
+*.duckdb
+*.duckdb.wal

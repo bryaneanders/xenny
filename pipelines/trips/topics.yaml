@@ -25,3 +25,43 @@ spec:
   replicas: 1
   config:
     cleanup.policy: compact
+---
+# Zone lookup, keyed by location ID; loaded by the cleaner at startup.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: ref.zones
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    cleanup.policy: compact
+---
+# Validated, deduplicated trips with zone names. Can be rebuilt from raw.trips.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: clean.trips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 6
+  replicas: 1
+---
+# Rejected raw trips, with a "rule" header. Kept so they can be replayed after a rule change.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: dlq.trips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: xenny
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: -1

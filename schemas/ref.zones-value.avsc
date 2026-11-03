@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "Zone",
+  "namespace": "xenny.ref",
+  "doc": "One row of the TLC taxi zone lookup. Keyed by location_id.",
+  "fields": [
+    {"name": "location_id", "type": "int"},
+    {"name": "borough", "type": "string"},
+    {"name": "zone", "type": "string"},
+    {"name": "service_zone", "type": "string"}
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "title": "Xenny pipelines",
+  "uid": "xenny-pipelines",
+  "schemaVersion": 39,
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Consumer lag by group",
+      "description": "Records each consumer group has yet to read. Drops to zero once a file is fully processed.",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 9},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (consumergroup) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}}"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cleaner output (records/s)",
+      "gridPos": {"x": 0, "y": 9, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(rate(trips_cleaned_total[1m]))", "legendFormat": "clean"},
+        {"expr": "sum by (rule) (rate(trips_rejected_total[1m]))", "legendFormat": "rejected: {{rule}}"}
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Rejects by rule (since cleaner start)",
+      "gridPos": {"x": 12, "y": 9, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (rule) (trips_rejected_total)", "legendFormat": "{{rule}}", "instant": true}
+      ]
+    }
+  ]
+}

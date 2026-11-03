@@ -48,3 +48,5 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
+  # Exports consumer group lag; scraped by the PodMonitor in podmonitor.yaml.
+  kafkaExporter: {}

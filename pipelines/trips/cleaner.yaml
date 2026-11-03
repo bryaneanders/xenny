@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trips-cleaner
+  namespace: pipelines
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: trips-cleaner}
+  template:
+    metadata:
+      labels: {app: trips-cleaner}
+    spec:
+      containers:
+        - name: cleaner
+          # CI updates this tag on each push to main; see .github/workflows/cleaner.yml.
+          image: ghcr.io/bryaneanders/xenny-cleaner:latest
+          env:
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap.kafka:9092}
+            - {name: REGISTRY_URL, value: "http://apicurio-registry.kafka:8080/apis/registry/v3"}
+            - {name: ZONES_URL, value: "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv"}
+            # A subfolder, so Kafka Streams owns it and can set its permissions.
+            - {name: STATE_DIR, value: /state/streams}
+            # RocksDB uses memory outside the heap.
+            - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=50"}
+          ports:
+            - {name: metrics, containerPort: 8080}
+          volumeMounts:
+            - {name: state, mountPath: /state}
+          resources:
+            requests: {memory: 1Gi, cpu: 500m}
+            limits: {memory: 1Gi}
+      volumes:
+        # The dedupe store; rebuilt from its changelog topic if the pod moves.
+        - name: state
+          emptyDir: {sizeLimit: 2Gi}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: trips-cleaner
+  namespace: pipelines
+spec:
+  selector:
+    matchLabels: {app: trips-cleaner}
+  podMetricsEndpoints:
+    - {port: metrics, path: /metrics}
