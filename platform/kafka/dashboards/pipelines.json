@@ -12,7 +12,7 @@
       "gridPos": {"x": 0, "y": 0, "w": 24, "h": 9},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"expr": "sum by (consumergroup) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}}"}
+        {"expr": "sum by (consumergroup) (kafka_consumergroup_lag{consumergroup!~\"apicurio-.*\"})", "legendFormat": "{{consumergroup}}"}
       ]
     },
     {
