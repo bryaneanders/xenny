@@ -11,7 +11,7 @@ spec:
   version: 4.3.1
   replicas: 1
   # Built from apps/connect. CI updates this tag on each push to main; see .github/workflows/connect.yml.
-  image: ghcr.io/bryaneanders/xenny-connect:sha-9fa00b5
+  image: ghcr.io/bryaneanders/xenny-connect:sha-f5f62ae
   bootstrapServers: xenny-kafka-bootstrap:9092
   groupId: connect
   configStorageTopic: connect-configs
