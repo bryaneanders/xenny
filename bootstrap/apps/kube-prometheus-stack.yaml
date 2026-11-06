@@ -34,7 +34,7 @@ spec:
           admin:
             existingSecret: grafana-admin
           plugins:
-            - grafana-clickhouse-datasource 4.23.4
+            - grafana-clickhouse-datasource@4.23.4
           # The ClickHouse password, from a Secret created by bootstrap/install.sh.
           envValueFrom:
             CLICKHOUSE_PASSWORD:
