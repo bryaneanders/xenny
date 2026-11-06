@@ -1,0 +1,51 @@
+# Grafana dashboard over the ClickHouse gold table; Grafana loads any ConfigMap with this label.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trips-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  trips.json: |
+    {
+      "title": "NYC taxi trips",
+      "uid": "xenny-trips",
+      "schemaVersion": 39,
+      "time": {"from": "now-1y", "to": "now"},
+      "refresh": "1m",
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Trips per hour",
+          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 9},
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse"},
+          "targets": [{
+            "refId": "A", "editorType": "sql", "format": 0,
+            "rawSql": "SELECT hour AS time, sum(trips) AS trips FROM trips.zone_hourly WHERE $__timeFilter(hour) GROUP BY time ORDER BY time"
+          }]
+        },
+        {
+          "type": "bargauge",
+          "title": "Top pickup zones",
+          "gridPos": {"x": 0, "y": 9, "w": 12, "h": 10},
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse"},
+          "options": {"displayMode": "basic", "orientation": "horizontal", "reduceOptions": {"values": true, "calcs": []}},
+          "targets": [{
+            "refId": "A", "editorType": "sql", "format": 1,
+            "rawSql": "SELECT pickup_zone, sum(trips) AS trips FROM trips.zone_hourly WHERE $__timeFilter(hour) GROUP BY pickup_zone ORDER BY trips DESC LIMIT 10"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "Average fare and tip per day",
+          "gridPos": {"x": 12, "y": 9, "w": 12, "h": 10},
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "clickhouse"},
+          "fieldConfig": {"defaults": {"unit": "currencyUSD"}},
+          "targets": [{
+            "refId": "A", "editorType": "sql", "format": 0,
+            "rawSql": "SELECT toStartOfDay(hour) AS time, sum(fares) / sum(trips) AS avg_fare, sum(tips) / sum(trips) AS avg_tip FROM trips.zone_hourly WHERE $__timeFilter(hour) GROUP BY time ORDER BY time"
+          }]
+        }
+      ]
+    }

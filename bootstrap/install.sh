@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 ARGOCD_CHART_VERSION=10.11.1
 
-for ns in argocd monitoring lake kafka pipelines; do
+for ns in argocd monitoring lake kafka pipelines warehouse; do
   kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
 done
 
@@ -43,6 +43,13 @@ for ns in pipelines kafka; do
     --from-literal=AWS_ACCESS_KEY_ID="$(s3key admin_access_key_id)" \
     --from-literal=AWS_SECRET_ACCESS_KEY="$(s3key admin_secret_access_key)"
 done
+
+# ClickHouse logins: pipelines create and load tables as "ingest"; Grafana reads as "grafana".
+secret warehouse clickhouse-users \
+  --from-literal=ingest="$(rand 16)" \
+  --from-literal=grafana="$(rand 16)"
+chpw() { kubectl -n warehouse get secret clickhouse-users -o jsonpath="{.data.$1}" | base64 -d; }
+secret monitoring clickhouse-grafana --from-literal=password="$(chpw grafana)"
 
 helm upgrade --install argocd argo-cd \
   --repo https://argoproj.github.io/argo-helm \

@@ -1,0 +1,47 @@
+# One ClickHouse server (1 shard, 1 replica). Pipelines create their own databases and tables,
+# e.g. pipelines/trips/clickhouse.yaml.
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: xenny
+  namespace: warehouse
+spec:
+  configuration:
+    # Passwords come from a Secret created by bootstrap/install.sh. Access is cluster-internal only.
+    users:
+      # Creates tables and loads data; no grants listed means all privileges.
+      ingest/password:
+        valueFrom: {secretKeyRef: {name: clickhouse-users, key: ingest}}
+      ingest/networks/ip: ["0.0.0.0/0", "::/0"]
+      # Grafana: read-only.
+      grafana/password:
+        valueFrom: {secretKeyRef: {name: clickhouse-users, key: grafana}}
+      grafana/networks/ip: ["0.0.0.0/0", "::/0"]
+      grafana/grants/query: ["GRANT SELECT ON *.*"]
+    clusters:
+      - name: xenny
+        layout: {shardsCount: 1, replicasCount: 1}
+  defaults:
+    templates:
+      podTemplate: clickhouse
+      dataVolumeClaimTemplate: data
+  templates:
+    podTemplates:
+      - name: clickhouse
+        spec:
+          containers:
+            - name: clickhouse
+              # 26.8 is the current LTS line.
+              image: clickhouse/clickhouse-server:26.8.36.3
+              resources:
+                requests: {memory: 3Gi, cpu: 500m}
+                limits: {memory: 3Gi}
+    volumeClaimTemplates:
+      - name: data
+        # Keep the data if the installation is deleted. Kafka keeps each table's read position,
+        # so a fresh empty volume would resume mid-topic; see "Rebuilding ClickHouse" in the README.
+        reclaimPolicy: Retain
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: {storage: 10Gi}

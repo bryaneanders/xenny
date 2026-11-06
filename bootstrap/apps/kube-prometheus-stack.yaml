@@ -30,9 +30,26 @@ spec:
                     requests:
                       storage: 10Gi
         grafana:
-          # Created by bootstrap/up.sh, outside git.
+          # Created by bootstrap/install.sh, outside git.
           admin:
             existingSecret: grafana-admin
+          plugins:
+            - grafana-clickhouse-datasource 4.23.4
+          # The ClickHouse password, from a Secret created by bootstrap/install.sh.
+          envValueFrom:
+            CLICKHOUSE_PASSWORD:
+              secretKeyRef: {name: clickhouse-grafana, key: password}
+          additionalDataSources:
+            - name: ClickHouse
+              uid: clickhouse
+              type: grafana-clickhouse-datasource
+              jsonData:
+                host: clickhouse-xenny.warehouse
+                port: 9000
+                protocol: native
+                username: grafana
+              secureJsonData:
+                password: $CLICKHOUSE_PASSWORD
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

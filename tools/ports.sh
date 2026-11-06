@@ -16,6 +16,7 @@ connect    | kafka      | xenny-connect-api                | 8083:8083 | http://
 lakekeeper | lake       | lakekeeper                       | 8181:8181 | http://localhost:8181/ui                       | Iceberg catalog UI; REST catalog at /catalog
 s3         | lake       | seaweedfs-all-in-one             | 8333:8333 | http://localhost:8333                          | S3 API for the aws CLI and DuckDB
 filer      | lake       | seaweedfs-all-in-one             | 8888:8888 | http://localhost:8888/buckets/                 | SeaweedFS file browser for the buckets
+clickhouse | warehouse  | clickhouse-xenny                 | 8123:8123 | http://localhost:8123/play                     | ClickHouse SQL page (and HTTP API)
 '
 
 rows() { grep -v '^$' <<<"$SERVICES" | sed 's/ *| */|/g'; }
@@ -27,6 +28,7 @@ login() {
     argocd) echo "admin / $(secret argocd argocd-initial-admin-secret password)" ;;
     grafana) echo "admin / $(secret monitoring grafana-admin admin-password)" ;;
     s3) echo "key $(secret pipelines s3-credentials AWS_ACCESS_KEY_ID), secret $(secret pipelines s3-credentials AWS_SECRET_ACCESS_KEY)" ;;
+    clickhouse) echo "grafana / $(secret warehouse clickhouse-users grafana) (read-only), ingest / $(secret warehouse clickhouse-users ingest)" ;;
   esac
 }
 

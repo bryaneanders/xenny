@@ -1,0 +1,92 @@
+# ClickHouse tables for the trips pipeline. A Job applies schema.sql after every sync,
+# so every statement must be safe to rerun (IF NOT EXISTS).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trips-clickhouse
+  namespace: warehouse
+data:
+  schema.sql: |
+    CREATE DATABASE IF NOT EXISTS trips;
+
+    -- Every clean trip. A record redelivered by Kafka has the same key, so the copies collapse into one
+    -- when ClickHouse merges parts in the background; FINAL collapses any not yet merged at query time.
+    CREATE TABLE IF NOT EXISTS trips.trips (
+      source_file String,
+      row_number Int64,
+      ingested_at DateTime64(3, 'UTC'),
+      vendor_id Nullable(Int32),
+      pickup_time DateTime64(3, 'America/New_York'),
+      dropoff_time DateTime64(3, 'America/New_York'),
+      passenger_count Nullable(Int64),
+      trip_distance Nullable(Float64),
+      ratecode_id Nullable(Int64),
+      store_and_fwd_flag Nullable(String),
+      pickup_location_id Int32,
+      pickup_borough String,
+      pickup_zone String,
+      dropoff_location_id Int32,
+      dropoff_borough String,
+      dropoff_zone String,
+      payment_type Nullable(Int64),
+      fare_amount Nullable(Float64),
+      extra Nullable(Float64),
+      mta_tax Nullable(Float64),
+      tip_amount Nullable(Float64),
+      tolls_amount Nullable(Float64),
+      improvement_surcharge Nullable(Float64),
+      total_amount Nullable(Float64),
+      congestion_surcharge Nullable(Float64),
+      airport_fee Nullable(Float64),
+      cbd_congestion_fee Nullable(Float64),
+      request_source Nullable(String)
+    ) ENGINE = ReplacingMergeTree ORDER BY (source_file, row_number);
+
+    -- Reads clean.trips as consumer group clickhouse-trips, decoding Avro via the registry.
+    -- Stores nothing itself: the view below moves each batch it reads into trips.trips.
+    CREATE TABLE IF NOT EXISTS trips.trips_queue AS trips.trips
+    ENGINE = Kafka SETTINGS
+      kafka_broker_list = 'xenny-kafka-bootstrap.kafka:9092',
+      kafka_topic_list = 'clean.trips',
+      kafka_group_name = 'clickhouse-trips',
+      kafka_format = 'AvroConfluent',
+      format_avro_schema_registry_url = 'http://apicurio-registry.kafka:8080/apis/ccompat/v7';
+
+    CREATE MATERIALIZED VIEW IF NOT EXISTS trips.trips_mv TO trips.trips AS SELECT * FROM trips.trips_queue;
+
+    -- Gold: trips and money per pickup zone per hour, in New York time. Recomputed from trips FINAL
+    -- every minute rather than added to on each insert, so a redelivered record is never counted twice.
+    CREATE MATERIALIZED VIEW IF NOT EXISTS trips.zone_hourly
+    REFRESH EVERY 1 MINUTE
+    ENGINE = MergeTree ORDER BY (hour, pickup_zone)
+    AS SELECT toStartOfHour(pickup_time) AS hour, pickup_borough, pickup_zone,
+              count() AS trips, sum(fare_amount) AS fares, sum(tip_amount) AS tips, sum(total_amount) AS revenue
+       FROM trips.trips FINAL
+       GROUP BY hour, pickup_borough, pickup_zone;
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trips-clickhouse-schema
+  namespace: warehouse
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  # Retries while ClickHouse is still starting on a fresh cluster.
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: apply
+          image: clickhouse/clickhouse-server:26.8.36.3
+          command: [clickhouse-client, --host, clickhouse-xenny, --user, ingest, --queries-file, /sql/schema.sql]
+          env:
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom: {secretKeyRef: {name: clickhouse-users, key: ingest}}
+          volumeMounts:
+            - {name: sql, mountPath: /sql}
+      volumes:
+        - name: sql
+          configMap: {name: trips-clickhouse}

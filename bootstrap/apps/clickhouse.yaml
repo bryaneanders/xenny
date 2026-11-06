@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: clickhouse
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Altinity operator; it watches its own namespace for ClickHouseInstallations.
+    - repoURL: https://docs.altinity.com/clickhouse-operator/
+      chart: altinity-clickhouse-operator
+      targetRevision: 0.27.4
+      helm:
+        valuesObject:
+          # ArgoCD applies the chart's CRDs itself; the chart's hook Job would do it again.
+          crdHook: {enabled: false}
+    # The ClickHouse server itself.
+    - repoURL: https://github.com/bryaneanders/xenny.git
+      targetRevision: main
+      path: platform/clickhouse
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: warehouse
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The CRDs are too large for client-side apply.
+      - ServerSideApply=true
+      # The ClickHouseInstallation CRD doesn't exist until the chart is applied.
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: -1
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
