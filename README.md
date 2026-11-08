@@ -18,7 +18,7 @@ sql/              # DuckDB scripts for querying and exploring the lake
 Data flow so far:
 
 ```
-landing/trips/*.parquet -> ingest -> raw.trips -> Iceberg sink -> bronze.trips
+landing/trips/*.parquet -> ingest -> raw.trips (7 days) -> Iceberg sink -> bronze.trips
                                          |
                                       cleaner -> clean.trips -> Iceberg sink -> silver.trips
                                          |            |
@@ -63,6 +63,25 @@ aws --endpoint-url http://localhost:8333 s3 cp yellow_tripdata_2026-07.parquet s
 ```
 
 The ingest service moves finished files to `processed/trips/` and unreadable ones to `failed/trips/`.
+
+### Replaying files
+
+`raw.trips` keeps 7 days; the files in `processed/trips/` and `bronze.trips` are the permanent copies.
+To push an older file through the pipeline again (e.g. after a cleaner rule change), remove it
+from the ingest ledger, restart ingest (it reads the ledger at startup), and move the file back:
+
+```sh
+FILE=trips/yellow_tripdata_2026-07.parquet
+# A null value (a tombstone) deletes the file's ledger entry.
+printf '%s\tNULL\n' "$FILE" | kubectl -n kafka exec -i xenny-dual-0 -c kafka -- bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 --topic ingest.ledger \
+  --reader-property parse.key=true --reader-property null.marker=NULL
+kubectl -n pipelines rollout restart deploy/trips-ingest
+aws --endpoint-url http://localhost:8333 s3 mv "s3://landing/processed/$FILE" "s3://landing/$FILE"
+```
+
+The Iceberg sinks append, so a replayed file is added to `bronze.trips` and `silver.trips` a second
+time. Replay as part of a rebuild: clear the downstream tables first.
 
 ## Querying the lake
 

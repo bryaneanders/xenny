@@ -9,8 +9,9 @@ spec:
   partitions: 6
   replicas: 1
   config:
-    # Kept forever so silver and gold can be rebuilt by replaying it.
-    retention.ms: -1
+    # 7 days: a buffer for downstream consumers. bronze.trips and the files in
+    # processed/trips/ already archive every row; see "Replaying files" in the README.
+    retention.ms: 604800000
 ---
 # Files already ingested. Compaction keeps only the latest entry per file.
 apiVersion: kafka.strimzi.io/v1
