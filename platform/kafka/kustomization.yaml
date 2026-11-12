@@ -5,6 +5,7 @@ resources:
   - kafka.yaml
   - smoke-test.yaml
   - podmonitor.yaml
+  - alerts.yaml
 # Grafana's sidecar loads any ConfigMap labeled grafana_dashboard: "1".
 configMapGenerator:
   - name: strimzi-dashboards

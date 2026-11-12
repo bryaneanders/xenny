@@ -7,7 +7,6 @@ metadata:
     strimzi.io/cluster: xenny
 spec:
   partitions: 6
-  replicas: 1
   config:
     # 7 days: a buffer for downstream consumers. bronze.trips and the files in
     # processed/trips/ already archive every row; see "Replaying files" in the README.
@@ -23,7 +22,6 @@ metadata:
     strimzi.io/cluster: xenny
 spec:
   partitions: 1
-  replicas: 1
   config:
     cleanup.policy: compact
 ---
@@ -37,11 +35,10 @@ metadata:
     strimzi.io/cluster: xenny
 spec:
   partitions: 1
-  replicas: 1
   config:
     cleanup.policy: compact
 ---
-# Validated, deduplicated trips with zone names. Can be rebuilt from raw.trips.
+# Validated, deduplicated trips with zone names. Topics get 3 replicas from the broker default.
 apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
@@ -51,7 +48,6 @@ metadata:
     strimzi.io/cluster: xenny
 spec:
   partitions: 6
-  replicas: 1
 ---
 # Rejected raw trips, with a "rule" header. Kept so they can be replayed after a rule change.
 apiVersion: kafka.strimzi.io/v1
@@ -63,6 +59,5 @@ metadata:
     strimzi.io/cluster: xenny
 spec:
   partitions: 1
-  replicas: 1
   config:
     retention.ms: -1

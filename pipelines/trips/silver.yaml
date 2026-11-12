@@ -42,4 +42,3 @@ metadata:
     strimzi.io/cluster: xenny
 spec:
   partitions: 1
-  replicas: 1

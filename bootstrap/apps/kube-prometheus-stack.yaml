@@ -29,6 +29,24 @@ spec:
                   resources:
                     requests:
                       storage: 10Gi
+        alertmanager:
+          config:
+            route:
+              # Only our own alerts (label notify=phone) notify; the chart's built-in ones are dropped for now.
+              receiver: "null"
+              group_by: [alertname]
+              routes:
+                - receiver: ntfy
+                  matchers: ['notify="phone"']
+            receivers:
+              - name: "null"
+              - name: ntfy
+                webhook_configs:
+                  # The ntfy topic URL is a Secret created by bootstrap/install.sh, so it isn't public.
+                  - url_file: /etc/alertmanager/secrets/alertmanager-ntfy/url
+                    send_resolved: true
+          alertmanagerSpec:
+            secrets: [alertmanager-ntfy]
         grafana:
           # Created by bootstrap/install.sh, outside git.
           admin:

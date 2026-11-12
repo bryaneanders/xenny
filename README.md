@@ -7,6 +7,7 @@ Xenny is a modularized and extensible streaming data ingestion framework running
 bootstrap/        # cluster config, install script, root app-of-apps
 bootstrap/apps/   # one ArgoCD Application per component
 platform/         # shared infra config (Kafka, schema registry, Iceberg catalog, Kafka Connect, ClickHouse)
+tools/            # port-forwards (ports.sh) and the reconciliation check (reconcile.sh)
 schemas/          # Avro schemas, one per registry subject; registered by a Job on sync
 pipelines/trips/  # topics, deployments, connectors, ClickHouse tables and dashboard for the trips dataset
 apps/ingest/      # ingest service: files in landing/trips/ -> raw.trips
@@ -128,6 +129,30 @@ kubectl -n kafka exec xenny-dual-0 -c kafka -- bin/kafka-consumer-groups.sh --bo
 ```
 
 The reset prints each partition's new offset; if it prints only the header, the group still had a consumer.
+
+## Checking the pipeline
+
+`tools/reconcile.sh` checks that every ingested file's rows are accounted for at each layer:
+rows in the file = unique rows in bronze = silver + DLQ = ClickHouse trips, and the gold total
+matches silver. It prints a table per file and exits non-zero on a mismatch. Run it after any
+change or failure drill. (Bronze stands in for `raw.trips`, which only keeps 7 days.)
+
+## Alerts
+
+Alerts labeled `notify=phone` (`platform/kafka/alerts.yaml`, `pipelines/trips/alerts.yaml`) are
+sent to a private [ntfy](https://ntfy.sh) topic. Install the ntfy app and subscribe to the topic
+this prints:
+
+```sh
+kubectl -n monitoring get secret alertmanager-ntfy -o jsonpath='{.data.url}' | base64 -d | sed 's|.*/||; s|?.*||'
+```
+
+| Alert | Fires when |
+|---|---|
+| KafkaUnderReplicatedPartitions | a partition is missing an in-sync replica for 1 minute (a broker is down) |
+| KafkaConsumerLagHigh | a consumer group is more than 10,000 records behind for 10 minutes |
+| KafkaConnectTaskFailed | a connector task is FAILED for 1 minute |
+| TripsRejectRateHigh | the cleaner rejects more than 5% of trips for 2 minutes (normally ~0.4%) |
 
 ## Port-forwards
 

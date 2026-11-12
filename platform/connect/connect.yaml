@@ -22,6 +22,11 @@ spec:
     config.storage.replication.factor: -1
     offset.storage.replication.factor: -1
     status.storage.replication.factor: -1
+  # Connector and task status for alerts; scraped by platform/kafka/podmonitor.yaml.
+  metricsConfig:
+    type: jmxPrometheusExporter
+    valueFrom:
+      configMapKeyRef: {name: connect-metrics, key: metrics.yaml}
   jvmOptions:
     -Xms: 1g
     -Xmx: 1g
@@ -44,3 +49,25 @@ spec:
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom: {secretKeyRef: {name: s3-credentials, key: AWS_SECRET_ACCESS_KEY}}
         - {name: AWS_REGION, value: us-east-1}
+---
+# JMX exporter rules, from Strimzi's examples/metrics/kafka-connect-metrics.yaml.
+# Status is text, so each becomes a gauge of 1 with the status as a label.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connect-metrics
+  namespace: kafka
+data:
+  metrics.yaml: |
+    lowercaseOutputName: true
+    rules:
+      - pattern: 'kafka.connect<type=connector-metrics, connector=(.+)><>status: ([a-z-]+)'
+        name: kafka_connect_connector_status
+        value: 1
+        labels: {connector: "$1", status: "$2"}
+        type: GAUGE
+      - pattern: 'kafka.connect<type=connector-task-metrics, connector=(.+), task=(.+)><>status: ([a-z-]+)'
+        name: kafka_connect_connector_task_status
+        value: 1
+        labels: {connector: "$1", task: "$2", status: "$3"}
+        type: GAUGE

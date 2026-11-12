@@ -1,0 +1,30 @@
+# Alerts labeled notify=phone go to ntfy; see the Alertmanager config in
+# bootstrap/apps/kube-prometheus-stack.yaml.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kafka-alerts
+spec:
+  groups:
+    - name: kafka
+      rules:
+        - alert: KafkaUnderReplicatedPartitions
+          # From the Kafka Exporter: partitions with fewer in-sync copies than replicas.
+          expr: sum(kafka_topic_partition_under_replicated_partition) > 0
+          for: 1m
+          labels: {notify: phone}
+          annotations:
+            summary: "{{ $value }} Kafka partitions are under-replicated; a broker is down or behind."
+        - alert: KafkaConsumerLagHigh
+          # Apicurio leaves a stale group behind each time it restarts.
+          expr: sum by (consumergroup) (kafka_consumergroup_lag{consumergroup!~"apicurio-.*"}) > 10000
+          for: 10m
+          labels: {notify: phone}
+          annotations:
+            summary: "Consumer group {{ $labels.consumergroup }} is {{ $value }} records behind for 10 minutes."
+        - alert: KafkaConnectTaskFailed
+          expr: kafka_connect_connector_task_status{status="failed"} > 0
+          for: 1m
+          labels: {notify: phone}
+          annotations:
+            summary: "Connector {{ $labels.connector }} task {{ $labels.task }} has failed."

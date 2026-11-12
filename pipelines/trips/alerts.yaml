@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: trips-alerts
+  namespace: pipelines
+spec:
+  groups:
+    - name: trips
+      rules:
+        - alert: TripsRejectRateHigh
+          # Normally about 0.4% of trips are rejected (sql/explore.sql).
+          expr: |
+            sum(rate(trips_rejected_total[5m]))
+              / (sum(rate(trips_rejected_total[5m])) + sum(rate(trips_cleaned_total[5m]))) > 0.05
+          for: 2m
+          labels: {notify: phone}
+          annotations:
+            summary: "The cleaner is rejecting {{ $value | humanizePercentage }} of trips; check dlq.trips."

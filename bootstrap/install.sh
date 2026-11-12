@@ -51,6 +51,10 @@ secret warehouse clickhouse-users \
 chpw() { kubectl -n warehouse get secret clickhouse-users -o jsonpath="{.data.$1}" | base64 -d; }
 secret monitoring clickhouse-grafana --from-literal=password="$(chpw grafana)"
 
+# Alertmanager posts alerts to this private ntfy.sh topic; subscribe to it in the ntfy app.
+secret monitoring alertmanager-ntfy \
+  --from-literal=url="https://ntfy.sh/xenny-$(rand 12)?template=alertmanager"
+
 helm upgrade --install argocd argo-cd \
   --repo https://argoproj.github.io/argo-helm \
   --version "$ARGOCD_CHART_VERSION" \

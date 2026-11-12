@@ -54,6 +54,48 @@ data:
 
     CREATE MATERIALIZED VIEW IF NOT EXISTS trips.trips_mv TO trips.trips AS SELECT * FROM trips.trips_queue;
 
+    -- Trips the cleaner rejected (dlq.trips), as they arrived, with the rule each one failed.
+    CREATE TABLE IF NOT EXISTS trips.rejects (
+      rule LowCardinality(String),
+      source_file String,
+      row_number Int64,
+      ingested_at DateTime64(3, 'UTC'),
+      vendor_id Nullable(Int32),
+      pickup_time Nullable(DateTime64(6, 'America/New_York')),
+      dropoff_time Nullable(DateTime64(6, 'America/New_York')),
+      passenger_count Nullable(Int64),
+      trip_distance Nullable(Float64),
+      ratecode_id Nullable(Int64),
+      store_and_fwd_flag Nullable(String),
+      pickup_location_id Nullable(Int32),
+      dropoff_location_id Nullable(Int32),
+      payment_type Nullable(Int64),
+      fare_amount Nullable(Float64),
+      extra Nullable(Float64),
+      mta_tax Nullable(Float64),
+      tip_amount Nullable(Float64),
+      tolls_amount Nullable(Float64),
+      improvement_surcharge Nullable(Float64),
+      total_amount Nullable(Float64),
+      congestion_surcharge Nullable(Float64),
+      airport_fee Nullable(Float64),
+      cbd_congestion_fee Nullable(Float64),
+      request_source Nullable(String)
+    ) ENGINE = ReplacingMergeTree ORDER BY (source_file, row_number);
+
+    -- The rule is a Kafka header, not an Avro field, so the queue leaves it empty and the view fills it in.
+    CREATE TABLE IF NOT EXISTS trips.rejects_queue AS trips.rejects
+    ENGINE = Kafka SETTINGS
+      kafka_broker_list = 'xenny-kafka-bootstrap.kafka:9092',
+      kafka_topic_list = 'dlq.trips',
+      kafka_group_name = 'clickhouse-rejects',
+      kafka_format = 'AvroConfluent',
+      format_avro_schema_registry_url = 'http://apicurio-registry.kafka:8080/apis/ccompat/v7',
+      input_format_avro_allow_missing_fields = 1;
+
+    CREATE MATERIALIZED VIEW IF NOT EXISTS trips.rejects_mv TO trips.rejects AS
+    SELECT * REPLACE (_headers.value[indexOf(_headers.name, 'rule')] AS rule) FROM trips.rejects_queue;
+
     -- Gold: trips and money per pickup zone per hour, in New York time. Recomputed from trips FINAL
     -- every minute rather than added to on each insert, so a redelivered record is never counted twice.
     CREATE MATERIALIZED VIEW IF NOT EXISTS trips.zone_hourly
