@@ -14,7 +14,7 @@ spec:
       containers:
         - name: cleaner
           # CI updates this tag on each push to main; see .github/workflows/cleaner.yml.
-          image: ghcr.io/bryaneanders/xenny-cleaner:sha-f5f62ae
+          image: ghcr.io/bryaneanders/xenny-cleaner:sha-2f8e2af
           env:
             - {name: KAFKA_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap.kafka:9092}
             - {name: REGISTRY_URL, value: "http://apicurio-registry.kafka:8080/apis/registry/v3"}

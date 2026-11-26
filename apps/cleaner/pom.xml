@@ -50,6 +50,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.6.1</version>
         <configuration>
           <systemPropertyVariables>
             <org.apache.avro.SERIALIZABLE_PACKAGES>xenny</org.apache.avro.SERIALIZABLE_PACKAGES>
