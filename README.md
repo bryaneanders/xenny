@@ -1,4 +1,7 @@
 # xenny
+
+[![CI](https://github.com/bryaneanders/xenny/actions/workflows/images.yml/badge.svg?branch=main)](https://github.com/bryaneanders/xenny/actions/workflows/images.yml)
+
 Xenny is a modularized and extensible streaming data ingestion framework running on Kubernetes.
 
 ## Layout
