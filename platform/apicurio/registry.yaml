@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: registry
-          image: apicurio/apicurio-registry:3.3.3
+          image: apicurio/apicurio-registry:3.3.4
           env:
             - {name: APICURIO_STORAGE_KIND, value: kafkasql}
             - {name: APICURIO_KAFKASQL_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap:9092}

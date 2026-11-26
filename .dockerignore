@@ -1,3 +1,9 @@
-**/target/
 .git/
 *.pdf
+*.parquet
+*.duckdb
+# Build output, except what the Dockerfiles copy in.
+**/target/
+!apps/*/target/lib/
+!apps/*/target/*.jar
+!apps/connect/target/plugins/

@@ -22,6 +22,8 @@
     <avro.version>1.12.2</avro.version>
     <!-- Matches the broker version. -->
     <kafka.version>4.3.1</kafka.version>
+    <!-- Apicurio's POM adds the Eclipse and Confluent repositories unless skipExternalRepos is set;
+         .mvn/maven.config sets it, so Maven only uses Central (those repos stalled CI for minutes). -->
     <apicurio.version>3.3.4</apicurio.version>
     <parquet.version>1.18.2</parquet.version>
     <hadoop.version>3.5.0</hadoop.version>

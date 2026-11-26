@@ -37,7 +37,8 @@ ArgoCD syncs `main` from GitHub, so changes take effect once pushed.
 
 ## Dev cluster (MacBook)
 
-Requires Docker, k3d, kubectl, helm, Java 25 and Maven.
+Requires Docker, k3d, kubectl, helm, Java 25 and Maven; [docs/dependencies.md](docs/dependencies.md)
+lists everything xenny needs, with versions.
 
 ```sh
 k3d cluster create --config bootstrap/k3d-dev.yaml
@@ -47,8 +48,13 @@ k3d cluster create --config bootstrap/k3d-dev.yaml
 `install.sh` works against any cluster in the current kube context (e.g. k3s on the Ubuntu box).
 It creates the secrets kept out of git, installs ArgoCD, and applies the root app.
 
-Images (`apps/*`) are built by CI and pushed to GHCR (`ghcr.io/bryaneanders/xenny-*`) on push to `main`.
-CI then commits the new `sha-<commit>` tag to the manifest that uses it, and ArgoCD deploys it.
+Images (`apps/*`) are built by CI (`.github/workflows/images.yml`) and pushed to GHCR
+(`ghcr.io/bryaneanders/xenny-*`) on push to `main`. One job runs the Maven build and tests and is the
+only one that downloads dependencies; each image changed since its last deploy is then packaged from
+that job's cache, scanned, and pushed. CI then commits the new `sha-<commit>` tag to the manifest that
+uses it, and ArgoCD deploys it.
+To build an image locally, run Maven first (the Dockerfiles copy in its output), e.g.
+`mvn -B package -pl apps/cleaner -am -DskipTests`, then the `docker build` line at the top of the Dockerfile.
 Pull before your next commit to pick up that change.
 
 ## Ingesting a file
