@@ -65,6 +65,9 @@ aws --endpoint-url http://localhost:8333 s3 cp yellow_tripdata_2026-07.parquet s
 
 The ingest service moves finished files to `processed/trips/` and unreadable ones to `failed/trips/`.
 
+[docs/pipeline-walkthrough.md](docs/pipeline-walkthrough.md) follows one file through every stage,
+with the commands to check the row counts at each one.
+
 ### Replaying files
 
 `raw.trips` keeps 7 days; the files in `processed/trips/` and `bronze.trips` are the permanent copies.
