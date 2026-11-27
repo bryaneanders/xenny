@@ -18,10 +18,13 @@ spec:
   offsetStorageTopic: connect-offsets
   statusStorageTopic: connect-status
   config:
-    # -1 uses the broker default (1 while there's one broker).
+    # -1 uses the broker default (3).
     config.storage.replication.factor: -1
     offset.storage.replication.factor: -1
     status.storage.replication.factor: -1
+    # Sinks skip records from aborted transactions. Kafka's default reads them, so a cleaner crash
+    # mid-transaction left copies in silver that the cleaner then wrote again.
+    consumer.isolation.level: read_committed
   # Connector and task status for alerts; scraped by platform/kafka/podmonitor.yaml.
   metricsConfig:
     type: jmxPrometheusExporter

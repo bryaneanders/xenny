@@ -44,9 +44,10 @@ bronze AS (
   FROM lake.bronze.trips GROUP BY ALL),
 silver AS (SELECT source_file, count(*) AS silver FROM lake.silver.trips GROUP BY ALL),
 ch AS (FROM read_csv(getenv('CH_CSV')))
+-- coalesce: a file whose rows were all rejected has no silver rows.
 SELECT source_file, file_rows, bronze_unique, bronze - bronze_unique AS bronze_dups,
-       silver, dlq, clickhouse, gold,
-       file_rows = bronze_unique AND silver + dlq = bronze_unique AND clickhouse = silver AS ok
+       coalesce(silver, 0) AS silver, dlq, clickhouse, gold,
+       file_rows = bronze_unique AND coalesce(silver, 0) + dlq = bronze_unique AND clickhouse = coalesce(silver, 0) AS ok
 FROM files FULL JOIN bronze USING (source_file) FULL JOIN silver USING (source_file)
      FULL JOIN ch USING (source_file);
 
