@@ -1,5 +1,5 @@
-# Three brokers. Node 0 is also the only KRaft controller: Strimzi can't add controllers to
-# an existing cluster, so controller redundancy waits for a fresh install.
+# Three nodes, each a broker and a KRaft controller, so Kafka survives losing any one of them.
+# The controller count is fixed when the cluster is created (Strimzi can't add controllers later).
 apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
@@ -7,7 +7,7 @@ metadata:
   labels:
     strimzi.io/cluster: xenny
 spec:
-  replicas: 1
+  replicas: 3
   roles: [controller, broker]
   storage:
     type: jbod
@@ -18,27 +18,6 @@ spec:
         kraftMetadata: shared
         deleteClaim: false
   # Heap stays well under the pod limit so the JVM isn't OOM-killed.
-  jvmOptions:
-    -Xms: 512m
-    -Xmx: 512m
-  resources:
-    requests: {memory: 1Gi, cpu: 250m}
-    limits: {memory: 1Gi}
----
-apiVersion: kafka.strimzi.io/v1
-kind: KafkaNodePool
-metadata:
-  name: brokers
-  labels:
-    strimzi.io/cluster: xenny
-spec:
-  replicas: 2
-  roles: [broker]
-  # Same as the dual pool.
-  storage:
-    type: jbod
-    volumes:
-      - {id: 0, type: persistent-claim, size: 20Gi, kraftMetadata: shared, deleteClaim: false}
   jvmOptions:
     -Xms: 512m
     -Xmx: 512m

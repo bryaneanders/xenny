@@ -49,7 +49,34 @@ k3d cluster create --config bootstrap/k3d-dev.yaml
 ```
 
 `install.sh` works against any cluster in the current kube context (e.g. k3s on the Ubuntu box).
-It creates the secrets kept out of git, installs ArgoCD, and applies the root app.
+It creates the secrets kept out of git, installs ArgoCD, and applies the root app. ArgoCD then
+installs everything else; the cluster is ready when every app shows `Synced` and `Healthy`:
+
+```sh
+kubectl -n argocd get applications
+```
+
+To populate it, upload trip files as in [Ingesting a file](#ingesting-a-file) (a whole folder at once:
+`aws --endpoint-url http://localhost:8333 s3 cp trip-data/ s3://landing/trips/ --recursive --exclude '*' --include '*.parquet'`),
+then run `tools/reconcile.sh` once they're through.
+
+To delete the cluster and all its data:
+
+```sh
+k3d cluster delete xenny
+```
+
+A new cluster gets a new ntfy topic for [alerts](#alerts). To keep the old one, save it before deleting and
+recreate the secret before `install.sh`, which leaves existing secrets alone:
+
+```sh
+url=$(kubectl -n monitoring get secret alertmanager-ntfy -o jsonpath='{.data.url}' | base64 -d)
+k3d cluster delete xenny
+k3d cluster create --config bootstrap/k3d-dev.yaml
+kubectl create namespace monitoring
+kubectl -n monitoring create secret generic alertmanager-ntfy --from-literal=url="$url"
+./bootstrap/install.sh
+```
 
 Images (`apps/*`) are built by CI (`.github/workflows/images.yml`) and pushed to GHCR
 (`ghcr.io/bryaneanders/xenny-*`) on push to `main`. One job runs the Maven build and tests and is the
