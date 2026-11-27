@@ -10,7 +10,7 @@ metadata:
 spec:
   version: 4.3.1
   replicas: 1
-  # Built from apps/connect. CI updates this tag on each push to main; see .github/workflows/connect.yml.
+  # Built from apps/connect. CI updates this tag on each push to main; see .github/workflows/images.yml.
   image: ghcr.io/bryaneanders/xenny-connect:sha-ccc0629
   bootstrapServers: xenny-kafka-bootstrap:9092
   groupId: connect

@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
         - name: cleaner
-          # CI updates this tag on each push to main; see .github/workflows/cleaner.yml.
+          # CI updates this tag on each push to main; see .github/workflows/images.yml.
           image: ghcr.io/bryaneanders/xenny-cleaner:sha-ccc0629
           env:
             - {name: KAFKA_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap.kafka:9092}
@@ -21,15 +21,16 @@ spec:
             - {name: ZONES_URL, value: "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv"}
             # A subfolder, so Kafka Streams owns it and can set its permissions.
             - {name: STATE_DIR, value: /state/streams}
-            # RocksDB uses memory outside the heap.
-            - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=50"}
+            # A quarter for the heap. The rest is for RocksDB, which uses memory outside the heap and reads
+            # through the file cache; that cache counts against the limit, and the cleaner crawls without it.
+            - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=25"}
           ports:
             - {name: metrics, containerPort: 8080}
           volumeMounts:
             - {name: state, mountPath: /state}
           resources:
-            requests: {memory: 1Gi, cpu: 500m}
-            limits: {memory: 1Gi}
+            requests: {memory: 2Gi, cpu: 500m}
+            limits: {memory: 2Gi}
       volumes:
         # The dedupe store; rebuilt from its changelog topic if the pod moves.
         - name: state

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: ingest
-          # CI updates this tag on each push to main; see .github/workflows/ingest.yml.
+          # CI updates this tag on each push to main; see .github/workflows/images.yml.
           image: ghcr.io/bryaneanders/xenny-ingest:sha-ccc0629
           env:
             - {name: KAFKA_BOOTSTRAP_SERVERS, value: xenny-kafka-bootstrap.kafka:9092}
@@ -27,7 +27,8 @@ spec:
             - {name: TOPIC, value: raw.trips}
             - {name: LEDGER_TOPIC, value: ingest.ledger}
             - {name: WORK_DIR, value: /work}
-            - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=75"}
+            # Half for the heap: reading Parquet and the Kafka and S3 clients also use memory outside it.
+            - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=50"}
           # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, created by bootstrap/install.sh.
           envFrom:
             - secretRef: {name: s3-credentials}
